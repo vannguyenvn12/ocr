@@ -20,7 +20,7 @@ program
   .option('-o, --output <dir>', 'Output directory for results', './output')
   .option('-f, --file <filename>', 'Process single file only')
   .option('-e, --engine <type>', 'OCR engine: gemini or tesseract', 'tesseract')
-  .option('-m, --model <name>', 'Gemini model name', 'gemini-2.0-flash-lite')
+  .option('-m, --model <name>', 'Gemini model name', 'gemini-2.5-flash')
   .action(async (opts) => {
     const inputDir = path.resolve(opts.input);
     const outputDir = path.resolve(opts.output);

@@ -16,7 +16,7 @@ export class PassportScanner {
     this.preprocessedDir = path.join(outputDir, 'preprocessed');
     this.csvPath = path.join(outputDir, 'passports.csv');
     this.engineType = options.engine || 'tesseract';
-    this.geminiModel = options.geminiModel || 'gemini-2.0-flash-lite';
+    this.geminiModel = options.geminiModel || 'gemini-2.5-flash';
 
     if (this.engineType === 'gemini') {
       this.gemini = new GeminiOcrEngine(process.env.GEMINI_API_KEY, this.geminiModel);

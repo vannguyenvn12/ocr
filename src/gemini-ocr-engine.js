@@ -28,7 +28,7 @@ Rules:
 - confidence: your estimated accuracy 0-100`;
 
 export class GeminiOcrEngine {
-  constructor(apiKey, model = 'gemini-2.0-flash-lite') {
+  constructor(apiKey, model = 'gemini-2.5-flash') {
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY is required. Set it as environment variable.');
     }
@@ -40,22 +40,27 @@ export class GeminiOcrEngine {
     // No-op — Gemini SDK doesn't need worker initialization
   }
 
-  async processPassport(imagePath) {
+  async processPassport(imagePath, maxRetries = 3) {
     const imageBuffer = await readFile(imagePath);
     const mimeType = getMimeType(imagePath);
-
-    const result = await this.model.generateContent([
+    const content = [
       PASSPORT_PROMPT,
-      {
-        inlineData: {
-          mimeType,
-          data: imageBuffer.toString('base64'),
-        },
-      },
-    ]);
+      { inlineData: { mimeType, data: imageBuffer.toString('base64') } },
+    ];
 
-    const text = result.response.text();
-    return parseGeminiResponse(text);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await this.model.generateContent(content);
+        const text = result.response.text();
+        return parseGeminiResponse(text);
+      } catch (err) {
+        const isRetryable = err.message?.includes('503') || err.message?.includes('429');
+        if (!isRetryable || attempt === maxRetries) throw err;
+        const delay = attempt * 5000;
+        console.log(`\n  Retrying in ${delay / 1000}s (attempt ${attempt}/${maxRetries})...`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
   }
 
   async shutdown() {
