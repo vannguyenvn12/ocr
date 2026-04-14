@@ -15,9 +15,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "async-lock": "^1.4.1",
     "commander": "^14.0.3",
     "csv-writer": "^1.6.0",
+    "dotenv": "^17.4.2",
     "mrz": "^5.0.2",
     "sharp": "^0.34.5",
     "tesseract.js": "^7.0.0"

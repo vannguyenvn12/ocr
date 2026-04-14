@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import 'dotenv/config';
 import { Command } from 'commander';
 import path from 'path';
 import { PassportScanner } from './passport-scanner.js';
@@ -18,11 +19,22 @@ program
   .option('-i, --input <dir>', 'Input directory with passport images', './input')
   .option('-o, --output <dir>', 'Output directory for results', './output')
   .option('-f, --file <filename>', 'Process single file only')
+  .option('-e, --engine <type>', 'OCR engine: gemini or tesseract', 'tesseract')
+  .option('-m, --model <name>', 'Gemini model name', 'gemini-2.0-flash-lite')
   .action(async (opts) => {
     const inputDir = path.resolve(opts.input);
     const outputDir = path.resolve(opts.output);
 
-    const scanner = new PassportScanner(inputDir, outputDir);
+    if (opts.engine === 'gemini' && !process.env.GEMINI_API_KEY) {
+      console.error('Error: GEMINI_API_KEY environment variable is required for Gemini engine.');
+      console.error('Set it with: export GEMINI_API_KEY=your_key_here');
+      process.exit(1);
+    }
+
+    const scanner = new PassportScanner(inputDir, outputDir, {
+      engine: opts.engine,
+      geminiModel: opts.model,
+    });
 
     try {
       await scanner.initialize();

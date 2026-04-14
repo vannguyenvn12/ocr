@@ -1,0 +1,9 @@
+
+ RUN  v4.1.4 D:/Văn/ocr
+
+
+ Test Files  3 passed (3)
+      Tests  18 passed (18)
+   Start at  08:18:50
+   Duration  341ms (transform 93ms, setup 0ms, import 287ms, tests 73ms, environment 0ms)
+
