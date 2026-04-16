@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { readFile } from 'fs/promises';
-import path from 'path';
+import sharp from 'sharp';
 
 const PASSPORT_PROMPT = `You are a passport OCR system. Analyze this passport image and extract ALL fields.
 
@@ -41,11 +40,15 @@ export class GeminiOcrEngine {
   }
 
   async processPassport(imagePath, maxRetries = 3) {
-    const imageBuffer = await readFile(imagePath);
-    const mimeType = getMimeType(imagePath);
+    // Resize + compress to reduce token cost
+    const compressed = await sharp(imagePath)
+      .resize(800, null, { withoutEnlargement: true })
+      .jpeg({ quality: 75 })
+      .toBuffer();
+
     const content = [
       PASSPORT_PROMPT,
-      { inlineData: { mimeType, data: imageBuffer.toString('base64') } },
+      { inlineData: { mimeType: 'image/jpeg', data: compressed.toString('base64') } },
     ];
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -98,14 +101,4 @@ function parseGeminiResponse(text) {
       error: 'Failed to parse Gemini response as JSON',
     };
   }
-}
-
-function getMimeType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  const mimeTypes = {
-    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-    '.png': 'image/png', '.bmp': 'image/bmp',
-    '.tiff': 'image/tiff', '.tif': 'image/tiff',
-  };
-  return mimeTypes[ext] || 'image/jpeg';
 }
