@@ -1,0 +1,2 @@
+node src/index.js scan-db --limit 100 --model gemini-2.5-flash-lite
+node src/index.js retry --model gemini-2.5-flash-lite

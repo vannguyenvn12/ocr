@@ -31,6 +31,35 @@ export class DatabasePassportScanner {
     if (!existsSync(this.tempDir)) await mkdir(this.tempDir, { recursive: true });
   }
 
+  async processRetry() {
+    const tasks = await this.mysql.fetchFailedPassports();
+    this.results.total = tasks.length;
+
+    if (tasks.length === 0) {
+      console.log('No failed passports to retry.');
+      return [];
+    }
+
+    console.log(`Retrying ${tasks.length} failed passport(s)...\n`);
+
+    const results = [];
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      process.stdout.write(`[${i + 1}/${tasks.length}] ${task.ticketId} ... `);
+
+      const result = await this.processOneTask(task);
+      results.push(result);
+
+      if (result.status === 'SUCCESS') {
+        console.log(`OK (confidence: ${result.confidence}%)`);
+      } else {
+        console.log(`ERROR: ${result.error}`);
+      }
+    }
+
+    return results;
+  }
+
   async processAll() {
     const tasks = await this.mysql.fetchPendingPassports(this.limit);
     this.results.total = tasks.length;
@@ -45,7 +74,7 @@ export class DatabasePassportScanner {
     const results = [];
     for (let i = 0; i < tasks.length; i++) {
       const task = tasks[i];
-      const label = `${task.ticketId} [${task.type.toUpperCase()}]`;
+      const label = `${task.ticketId}`;
       process.stdout.write(`[${i + 1}/${tasks.length}] ${label} ... `);
 
       const result = await this.processOneTask(task);
@@ -74,10 +103,13 @@ export class DatabasePassportScanner {
       // OCR via Gemini
       const parsed = await this.gemini.processPassport(tempFile);
 
+      // Derive passport_type from AI's issuing_country
+      const passportType = derivePassportType(parsed.issuingCountry);
+
       // Insert result to shared DB
       await this.mysql.insertResult({
         ticketId: task.ticketId,
-        passportType: task.type,
+        passportType,
         sourcePath: task.path,
         passportNumber: parsed.passportNumber,
         surname: parsed.surname,
@@ -97,13 +129,13 @@ export class DatabasePassportScanner {
 
       this.results.success++;
       this.results.confidences.push(parsed.confidence);
-      return { status: 'SUCCESS', ticketId: task.ticketId, type: task.type, confidence: Math.round(parsed.confidence) };
+      return { status: 'SUCCESS', ticketId: task.ticketId, confidence: Math.round(parsed.confidence) };
     } catch (err) {
       // Log error to DB
       try {
         await this.mysql.insertResult({
           ticketId: task.ticketId,
-          passportType: task.type,
+          passportType: null,
           sourcePath: task.path,
           status: 'ERROR',
           errorMessage: err.message,
@@ -115,7 +147,7 @@ export class DatabasePassportScanner {
       }
 
       this.results.failed++;
-      return { status: 'ERROR', ticketId: task.ticketId, type: task.type, error: err.message };
+      return { status: 'ERROR', ticketId: task.ticketId, error: err.message };
     } finally {
       // Cleanup temp file
       if (tempFile) {
@@ -144,4 +176,13 @@ export class DatabasePassportScanner {
     await this.gemini.shutdown();
     await this.mysql.shutdown();
   }
+}
+
+/** Derive passport type from AI-detected issuing country */
+function derivePassportType(issuingCountry) {
+  if (!issuingCountry) return null;
+  const code = issuingCountry.toUpperCase();
+  if (code === 'USA' || code === 'US') return 'us';
+  if (code === 'VNM' || code === 'VN') return 'vn';
+  return code.toLowerCase();
 }

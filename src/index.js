@@ -145,4 +145,35 @@ program
     }
   });
 
+program
+  .command('retry')
+  .description('Retry all failed passport OCR scans')
+  .option('-m, --model <name>', 'Gemini model name', 'gemini-2.5-flash')
+  .option('-c, --credentials <path>', 'Google service account JSON', './credentials.json')
+  .action(async (opts) => {
+    const { GEMINI_API_KEY, SOURCE_DATABASE_URL, SHARED_DATABASE_URL } = process.env;
+
+    if (!GEMINI_API_KEY) { console.error('Error: GEMINI_API_KEY required in .env'); process.exit(1); }
+    if (!SOURCE_DATABASE_URL) { console.error('Error: SOURCE_DATABASE_URL required in .env'); process.exit(1); }
+    if (!SHARED_DATABASE_URL) { console.error('Error: SHARED_DATABASE_URL required in .env'); process.exit(1); }
+
+    const scanner = new DatabasePassportScanner({
+      geminiModel: opts.model,
+      credentialsPath: path.resolve(opts.credentials),
+      sourceDb: parseMysqlUrl(SOURCE_DATABASE_URL),
+      sharedDb: parseMysqlUrl(SHARED_DATABASE_URL),
+    });
+
+    try {
+      await scanner.initialize();
+      await scanner.processRetry();
+      console.log(scanner.generateReport());
+    } catch (err) {
+      console.error(`Fatal error: ${err.message}`);
+      process.exit(1);
+    } finally {
+      await scanner.shutdown();
+    }
+  });
+
 program.parse();

@@ -40,11 +40,7 @@ export class GeminiOcrEngine {
   }
 
   async processPassport(imagePath, maxRetries = 3) {
-    // Resize + compress to reduce token cost
-    const compressed = await sharp(imagePath)
-      .resize(800, null, { withoutEnlargement: true })
-      .jpeg({ quality: 75 })
-      .toBuffer();
+    const compressed = await compressForOcr(imagePath);
 
     const content = [
       PASSPORT_PROMPT,
@@ -69,6 +65,35 @@ export class GeminiOcrEngine {
   async shutdown() {
     // No-op — no workers to terminate
   }
+}
+
+/**
+ * Adaptive compression based on source image quality.
+ * Small/low-res images get gentle compression to preserve detail.
+ * Large/high-res images get aggressive compression to save tokens.
+ */
+async function compressForOcr(imagePath) {
+  const meta = await sharp(imagePath).metadata();
+  const w = meta.width || 0;
+
+  let targetWidth, quality;
+  if (w <= 1000) {
+    // Small/low-quality: don't resize, gentle compression
+    targetWidth = null;
+    quality = 90;
+  } else if (w <= 2500) {
+    // Medium: moderate resize + compression
+    targetWidth = 1200;
+    quality = 85;
+  } else {
+    // Large/high-res scan: aggressive compression
+    targetWidth = 1500;
+    quality = 75;
+  }
+
+  let pipeline = sharp(imagePath);
+  if (targetWidth) pipeline = pipeline.resize(targetWidth, null, { withoutEnlargement: true });
+  return pipeline.jpeg({ quality }).toBuffer();
 }
 
 function parseGeminiResponse(text) {
