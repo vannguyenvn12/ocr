@@ -1,4 +1,8 @@
 node_modules/
 output/
 input/
+temp/
 .env
+credentials.json
+*.pem
+*.key
