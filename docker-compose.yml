@@ -5,9 +5,6 @@ services:
     container_name: ocr-cron
     restart: unless-stopped
     env_file: .env
-    volumes:
-      - ./credentials.json:/app/credentials.json:ro
-      - ocr-temp:/app/temp
     mem_limit: 512m
     cpus: 1.0
     logging:
@@ -15,6 +12,3 @@ services:
       options:
         max-size: "20m"
         max-file: "5"
-
-volumes:
-  ocr-temp:

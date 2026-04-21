@@ -12,6 +12,7 @@ ENV NODE_ENV=production \
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY src ./src
+COPY credentials.json ./credentials.json
 
 RUN mkdir -p /app/temp && \
     useradd -r -u 1001 -g nogroup ocr && \

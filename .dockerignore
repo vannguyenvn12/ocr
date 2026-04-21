@@ -4,10 +4,9 @@ npm-debug.log*
 .gitignore
 .gitattributes
 
-# Secrets - mount at runtime, do not bake into image
+# .env vẫn bỏ ra, đọc qua env_file khi chạy
 .env
 .env.*
-credentials.json
 
 # Local data not needed in container (scan-cron uses Drive + MySQL)
 input
