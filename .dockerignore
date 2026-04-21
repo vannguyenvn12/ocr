@@ -1,0 +1,36 @@
+node_modules
+npm-debug.log*
+.git
+.gitignore
+.gitattributes
+
+# Secrets - mount at runtime, do not bake into image
+.env
+.env.*
+credentials.json
+
+# Local data not needed in container (scan-cron uses Drive + MySQL)
+input
+output
+temp
+test-output.txt
+
+# Dev / docs
+tests
+docs
+plans
+*.md
+research-report-*.md
+command.txt
+eng.traineddata
+
+# Docker meta
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# IDE
+.vscode
+.idea
+.DS_Store

@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
+    "cron": "node src/index.js scan-cron --limit 50 --interval 30 --model gemini-2.5-flash",
     "test": "vitest run"
   },
   "keywords": [],

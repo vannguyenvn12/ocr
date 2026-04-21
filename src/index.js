@@ -146,6 +146,75 @@ program
   });
 
 program
+  .command('scan-cron')
+  .description('Periodically scan the most recent pending passports')
+  .option('-m, --model <name>', 'Gemini model name', 'gemini-2.5-flash')
+  .option('-l, --limit <n>', 'Max passports per cycle', '50')
+  .option('-i, --interval <minutes>', 'Minutes between cycles', '5')
+  .option('-c, --credentials <path>', 'Google service account JSON', './credentials.json')
+  .action(async (opts) => {
+    const { GEMINI_API_KEY, SOURCE_DATABASE_URL, SHARED_DATABASE_URL } = process.env;
+
+    if (!GEMINI_API_KEY) { console.error('Error: GEMINI_API_KEY required in .env'); process.exit(1); }
+    if (!SOURCE_DATABASE_URL) { console.error('Error: SOURCE_DATABASE_URL required in .env'); process.exit(1); }
+    if (!SHARED_DATABASE_URL) { console.error('Error: SHARED_DATABASE_URL required in .env'); process.exit(1); }
+
+    const limit = parseInt(opts.limit, 10);
+    const intervalMs = Math.max(1, parseFloat(opts.interval)) * 60 * 1000;
+
+    const scanner = new DatabasePassportScanner({
+      geminiModel: opts.model,
+      credentialsPath: path.resolve(opts.credentials),
+      limit,
+      sourceDb: parseMysqlUrl(SOURCE_DATABASE_URL),
+      sharedDb: parseMysqlUrl(SHARED_DATABASE_URL),
+    });
+
+    let stopping = false;
+    let timer = null;
+
+    const shutdown = async (signal) => {
+      if (stopping) return;
+      stopping = true;
+      console.log(`\nReceived ${signal}, shutting down...`);
+      if (timer) clearTimeout(timer);
+      try { await scanner.shutdown(); } catch (e) { console.error(`Shutdown error: ${e.message}`); }
+      process.exit(0);
+    };
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+    try {
+      await scanner.initialize();
+    } catch (err) {
+      console.error(`Fatal init error: ${err.message}`);
+      process.exit(1);
+    }
+
+    console.log(`Cron started: limit=${limit}, interval=${opts.interval}min. Press Ctrl+C to stop.\n`);
+
+    const runCycle = async () => {
+      if (stopping) return;
+      const startedAt = new Date();
+      console.log(`\n[${startedAt.toISOString()}] Cycle start`);
+
+      scanner.results = { total: 0, success: 0, failed: 0, confidences: [] };
+      try {
+        await scanner.processAll();
+        console.log(scanner.generateReport());
+      } catch (err) {
+        console.error(`Cycle error: ${err.message}`);
+      }
+
+      if (stopping) return;
+      console.log(`Next cycle in ${opts.interval} minute(s).`);
+      timer = setTimeout(runCycle, intervalMs);
+    };
+
+    runCycle();
+  });
+
+program
   .command('retry')
   .description('Retry all failed passport OCR scans')
   .option('-m, --model <name>', 'Gemini model name', 'gemini-2.5-flash')
